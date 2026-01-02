@@ -1,0 +1,49 @@
+name: DevSecOps Pipeline - The Watcher
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  security_scan:
+    name: Security Scanning (Trivy)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      # 1. Analyse du code source (SAST) et des dépendances (SCA)
+      - name: Scan du dépôt (Code & Dépendances)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'json'
+          output: 'scan-report.json' # Génère le rapport pour le futur "Brain"
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1' # Fait échouer le pipeline si une faille est trouvée
+
+      # 2. Construction de l'image Docker
+      - name: Build Docker Image
+        run: |
+          docker build -t target-app:latest ./app
+
+      # 3. Analyse de l'image Docker finale
+      - name: Scan de l'image Docker
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'target-app:latest'
+          format: 'table' # Plus lisible dans les logs GitHub
+          severity: 'HIGH,CRITICAL'
+          exit-code: '1'
+
+      # 4. Sauvegarde du rapport JSON (Artéfact)
+      - name: Upload du rapport de scan
+        if: always() # On le garde même si le scan échoue
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: scan-report.json
