@@ -1,3 +1,23 @@
-Flask==2.0.1
-Jinja2==3.0.1
-MarkupSafe==2.0.1
+from flask import Flask, request, session
+from flask_sessioncookie import SessionCookie
+
+app = Flask(__name__)
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SECURE"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Strict"
+
+SessionCookie(app)
+
+@app.before_request
+def before_request():
+    if 'user_id' not in session:
+        session['user_id'] = None
+
+@app.after_request
+def after_request(response):
+    if 'user_id' in session and session['user_id']:
+        response.headers["Vary"] += ", cookie"
+    return response
+
+if __name__ == "__main__":
+    app.run(debug=True)
